@@ -1,20 +1,36 @@
-import http from 'http';
-import Debug from 'debug';
-import pump from 'pump';
 import EventEmitter from 'events';
+import http from 'http';
+import pump from 'pump';
+import { Duplex } from 'stream';
+import { newLogger } from './logger.js';
+import TunnelAgent from './TunnelAgent.js';
+
+
+type SocketError = Error & { code: string }
+
+type ClientOptions = {
+    id?: string
+    agent: TunnelAgent
+}
 
 // A client encapsulates req/res handling using an agent
 //
 // If an agent is destroyed, the request handling will error
 // The caller is responsible for handling a failed request
 class Client extends EventEmitter {
-    constructor(options) {
+
+    private readonly logger = newLogger(Client.name)
+
+    private id: string
+    private agent: TunnelAgent
+
+    private graceTimeout: NodeJS.Timeout
+
+    constructor(options: ClientOptions) {
         super();
 
         const agent = this.agent = options.agent;
         const id = this.id = options.id;
-
-        this.debug = Debug(`lt:Client[${this.id}]`);
 
         // client is given a grace period in which they can connect before they are _removed_
         this.graceTimeout = setTimeout(() => {
@@ -22,12 +38,12 @@ class Client extends EventEmitter {
         }, 1000).unref();
 
         agent.on('online', () => {
-            this.debug('client online %s', id);
+            this.logger.debug(`client online ${id}`);
             clearTimeout(this.graceTimeout);
         });
 
         agent.on('offline', () => {
-            this.debug('client offline %s', id);
+            this.logger.debug(`client offline ${id}`);
 
             // if there was a previous timeout set, we don't want to double trigger
             clearTimeout(this.graceTimeout);
@@ -40,7 +56,7 @@ class Client extends EventEmitter {
 
         // TODO(roman): an agent error removes the client, the user needs to re-connect?
         // how does a user realize they need to re-connect vs some random client being assigned same port?
-        agent.once('error', (err) => {
+        agent.once('error', (err: Error) => {
             this.close();
         });
     }
@@ -56,7 +72,7 @@ class Client extends EventEmitter {
     }
 
     handleRequest(req, res) {
-        this.debug('> %s', req.url);
+        this.logger.debug('> %s', req.url);
         const opt = {
             path: req.url,
             agent: this.agent,
@@ -65,7 +81,7 @@ class Client extends EventEmitter {
         };
 
         const clientReq = http.request(opt, (clientRes) => {
-            this.debug('< %s', req.url);
+            this.logger.debug(`< ${req.url}`);
             // write response code and headers
             res.writeHead(clientRes.statusCode, clientRes.headers);
 
@@ -76,7 +92,7 @@ class Client extends EventEmitter {
         // this can happen when underlying agent produces an error
         // in our case we 504 gateway error this?
         // if we have already sent headers?
-        clientReq.once('error', (err) => {
+        clientReq.once('error', (err: Error) => {
             // TODO(roman): if headers not sent - respond with gateway unavailable
         });
 
@@ -84,9 +100,9 @@ class Client extends EventEmitter {
         pump(req, clientReq);
     }
 
-    handleUpgrade(req, socket) {
-        this.debug('> [up] %s', req.url);
-        socket.once('error', (err) => {
+    handleUpgrade(req: http.IncomingMessage, socket: Duplex) {
+        this.logger.debug(`> [up] ${req.url}`);
+        socket.once('error', (err: SocketError) => {
             // These client side errors can happen if the client dies while we are reading
             // We don't need to surface these in our logs.
             if (err.code == 'ECONNRESET' || err.code == 'ETIMEDOUT') {
@@ -96,7 +112,7 @@ class Client extends EventEmitter {
         });
 
         this.agent.createConnection({}, (err, conn) => {
-            this.debug('< [up] %s', req.url);
+            this.logger.debug(`< [up] ${req.url}`);
             // any errors getting a connection mean we cannot service this request
             if (err) {
                 socket.end();

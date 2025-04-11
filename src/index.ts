@@ -1,16 +1,16 @@
-import log from 'book';
-import Koa from 'koa';
-import tldjs from 'tldjs';
 import Debug from 'debug';
 import http from 'http';
 import { hri } from 'human-readable-ids';
+import Koa, { Request } from 'koa';
 import Router from 'koa-router';
+import tldjs from 'tldjs';
 
-import ClientManager from './lib/ClientManager';
+import { Duplex } from 'stream';
+import ClientManager from './lib/ClientManager.js';
 
 const debug = Debug('localtunnel:server');
 
-export default function(opt) {
+export default function(opt?) {
     opt = opt || {};
 
     const validHosts = (opt.domain) ? [opt.domain] : undefined;
@@ -95,7 +95,7 @@ export default function(opt) {
         const reqId = parts[1];
 
         // limit requested hostnames to 63 characters
-        if (! /^(?:[a-z0-9][a-z0-9\-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqId)) {
+        if (! /^(?:[a-z0-9][a-z0-9-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqId)) {
             const msg = 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.';
             ctx.status = 403;
             ctx.body = {
@@ -142,7 +142,8 @@ export default function(opt) {
         client.handleRequest(req, res);
     });
 
-    server.on('upgrade', (req, socket, head) => {
+    
+    server.on('upgrade', (req: Request, socket: Duplex, head: Buffer) => {
         const hostname = req.headers.host;
         if (!hostname) {
             socket.destroy();

@@ -1,46 +1,59 @@
 import { hri } from 'human-readable-ids';
-import Debug from 'debug';
 
-import Client from './Client';
-import TunnelAgent from './TunnelAgent';
+import Client from './Client.js';
+import TunnelAgent from './TunnelAgent.js';
+import { newLogger } from './logger.js';
+
+type ClientManagerOptions = {
+    max_tcp_sockets?: number
+}
+type ClientManagerStats = {
+    tunnels: number
+}
 
 // Manage sets of clients
 //
 // A client is a "user session" established to service a remote localtunnel client
 class ClientManager {
-    constructor(opt) {
-        this.opt = opt || {};
 
-        // id -> client instance
-        this.clients = new Map();
+    private readonly logger = newLogger(ClientManager.name)
+
+    // id -> client instance
+    private clients = new Map()
+    public readonly stats: ClientManagerStats
+
+    constructor(private readonly opt: ClientManagerOptions = {}) {
 
         // statistics
         this.stats = {
             tunnels: 0
         };
 
-        this.debug = Debug('lt:ClientManager');
-
-        // This is totally wrong :facepalm: this needs to be per-client...
-        this.graceTimeout = null;
     }
 
     // create a new tunnel with `id`
     // if the id is already used, a random id is assigned
     // if the tunnel could not be created, throws an error
-    async newClient(id) {
+    async newClient(id?: string) : Promise<{
+        id: string,
+        port: number,
+        max_conn_count: number,
+        url?: string
+    }> {
         const clients = this.clients;
         const stats = this.stats;
 
         // can't ask for id already is use
-        if (clients[id]) {
+        if (!id || clients[id]) {
             id = hri.random();
         }
 
-        const maxSockets = this.opt.max_tcp_sockets;
+        this.logger.debug(`Add client id=${id}`)
+
+        const maxSockets = this.opt.max_tcp_sockets || 10;
         const agent = new TunnelAgent({
             clientId: id,
-            maxSockets: 10,
+            maxSockets,
         });
 
         const client = new Client({
@@ -74,7 +87,7 @@ class ClientManager {
     }
 
     removeClient(id) {
-        this.debug('removing client: %s', id);
+        this.logger.debug('removing client: %s', id);
         const client = this.clients[id];
         if (!client) {
             return;

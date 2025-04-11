@@ -1,13 +1,13 @@
 import assert from 'assert';
 import http from 'http';
+import net, { AddressInfo } from 'net';
 import { Duplex } from 'stream';
-import WebSocket from 'ws';
-import net from 'net';
 
-import Client from './Client';
+import Client from './Client.js';
+import TunnelAgent from './TunnelAgent.js';
 
 class DummySocket extends Duplex {
-    constructor(options) {
+    constructor(options={}) {
         super(options);
     }
 
@@ -22,7 +22,10 @@ class DummySocket extends Duplex {
 }
 
 class DummyWebsocket extends Duplex {
-    constructor(options) {
+
+    private sentHeader: boolean
+
+    constructor(options = {}) {
         super(options);
         this.sentHeader = false;
     }
@@ -61,9 +64,9 @@ class DummyAgent extends http.Agent {
     }
 }
 
-describe('Client', () => {
-    it('should handle request', async () => {
-        const agent = new DummyAgent();
+describe('Client', function() {
+    it('should handle request', async function() {
+        const agent = new DummyAgent() as TunnelAgent;
         const client = new Client({ agent });
 
         const server = http.createServer((req, res) => {
@@ -72,14 +75,14 @@ describe('Client', () => {
 
         await new Promise(resolve => server.listen(resolve));
 
-        const address = server.address();
+        const address = server.address() as AddressInfo;
         const opt = {
             host: 'localhost',
             port: address.port,
             path: '/',
         };
 
-        const res = await new Promise((resolve) => {
+        const res = await new Promise<http.IncomingMessage>((resolve) => {
             const req = http.get(opt, (res) => {
                 resolve(res);
             });
@@ -89,7 +92,7 @@ describe('Client', () => {
         server.close();
     });
 
-    it('should handle upgrade', async () => {
+    it('should handle upgrade', async function() {
         // need a websocket server and a socket for it
         class DummyWebsocketAgent extends http.Agent {
             constructor() {
@@ -101,7 +104,7 @@ describe('Client', () => {
             }
         }
 
-        const agent = new DummyWebsocketAgent();
+        const agent = new DummyWebsocketAgent() as TunnelAgent;
         const client = new Client({ agent });
 
         const server = http.createServer();
@@ -111,9 +114,9 @@ describe('Client', () => {
 
         await new Promise(resolve => server.listen(resolve));
 
-        const address = server.address();
+        const address = server.address() as AddressInfo;
 
-        const netClient = await new Promise((resolve) => {
+        const netClient = await new Promise<net.Socket>((resolve) => {
             const newClient = net.createConnection({ port: address.port }, () => {
                 resolve(newClient);
             });

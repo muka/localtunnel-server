@@ -1,25 +1,24 @@
-import request from 'supertest';
 import assert from 'assert';
-import { Server as WebSocketServer } from 'ws';
-import WebSocket from 'ws';
-import net from 'net';
+import net, { AddressInfo } from 'net';
+import request from 'supertest';
+import WebSocket, { Server as WebSocketServer } from 'ws';
 
-import createServer from './server';
+import createServer from './index.js';
 
-describe('Server', () => {
-    it('server starts and stops', async () => {
+describe('Server', function() {
+    it('server starts and stops', async function() {
         const server = createServer();
         await new Promise(resolve => server.listen(resolve));
         await new Promise(resolve => server.close(resolve));
     });
 
-    it('should redirect root requests to landing page', async () => {
+    it('should redirect root requests to landing page', async function() {
         const server = createServer();
         const res = await request(server).get('/');
         assert.equal('https://localtunnel.github.io/www/', res.headers.location);
     });
 
-    it('should support custom base domains', async () => {
+    it('should support custom base domains', async function() {
         const server = createServer({
             domain: 'domain.example.com',
         });
@@ -28,13 +27,13 @@ describe('Server', () => {
         assert.equal('https://localtunnel.github.io/www/', res.headers.location);
     });
 
-    it('reject long domain name requests', async () => {
+    it('reject long domain name requests', async function() {
         const server = createServer();
         const res = await request(server).get('/thisdomainisoutsidethesizeofwhatweallowwhichissixtythreecharacters');
         assert.equal(res.body.message, 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.');
     });
 
-    it('should upgrade websocket requests', async () => {
+    it('should upgrade websocket requests', async function() {
         const hostname = 'websocket-test';
         const server = createServer({
             domain: 'example.com',
@@ -44,7 +43,7 @@ describe('Server', () => {
         const res = await request(server).get('/websocket-test');
         const localTunnelPort = res.body.port;
 
-        const wss = await new Promise((resolve) => {
+        const wss = await new Promise<WebSocketServer>((resolve) => {
             const wsServer = new WebSocketServer({ port: 0 }, () => {
                 resolve(wsServer);
             });
@@ -62,7 +61,8 @@ describe('Server', () => {
             });
         });
 
-        const ws = new WebSocket('http://localhost:' + server.address().port, {
+        const addr = server.address() as AddressInfo
+        const ws = new WebSocket('http://localhost:' + addr.port, {
             headers: {
                 host: hostname + '.example.com',
             }
@@ -72,7 +72,7 @@ describe('Server', () => {
             ws.send('something');
         });
 
-        await new Promise((resolve) => {
+        await new Promise<void>((resolve) => {
             ws.once('message', (msg) => {
                 assert.equal(msg, 'something');
                 resolve();
@@ -83,7 +83,7 @@ describe('Server', () => {
         await new Promise(resolve => server.close(resolve));
     });
 
-    it('should support the /api/tunnels/:id/status endpoint', async () => {
+    it('should support the /api/tunnels/:id/status endpoint', async function() {
         const server = createServer();
         await new Promise(resolve => server.listen(resolve));
 

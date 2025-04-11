@@ -1,29 +1,29 @@
 import assert from 'assert';
 import net from 'net';
 
-import ClientManager from './ClientManager';
+import ClientManager from './ClientManager.js';
 
-describe('ClientManager', () => {
-    it('should construct with no tunnels', () => {
+describe('ClientManager', function() {
+    it('should construct with no tunnels', function() {
         const manager = new ClientManager();
         assert.equal(manager.stats.tunnels, 0);
     });
 
-    it('should create a new client with random id', async () => {
+    it('should create a new client with random id', async function() {
         const manager = new ClientManager();
         const client = await manager.newClient();
         assert(manager.hasClient(client.id));
         manager.removeClient(client.id);
     });
 
-    it('should create a new client with id', async () => {
+    it('should create a new client with id', async function() {
         const manager = new ClientManager();
         const client = await manager.newClient('foobar');
         assert(manager.hasClient('foobar'));
         manager.removeClient('foobar');
     });
 
-    it('should create a new client with random id if previous exists', async () => {
+    it('should create a new client with random id if previous exists', async function() {
         const manager = new ClientManager();
         const clientA = await manager.newClient('foobar');
         const clientB = await manager.newClient('foobar');
@@ -34,11 +34,11 @@ describe('ClientManager', () => {
         manager.removeClient('foobar');
     });
 
-    it('should remove client once it goes offline', async () => {
+    it('should remove client once it goes offline', async function() {
         const manager = new ClientManager();
         const client = await manager.newClient('foobar');
 
-        const socket = await new Promise((resolve) => {
+        const socket = await new Promise<net.Socket>((resolve) => {
             const netClient = net.createConnection({ port: client.port }, () => {
                 resolve(netClient);
             });
@@ -55,12 +55,12 @@ describe('ClientManager', () => {
         assert(!manager.hasClient('foobar'));
     }).timeout(5000);
 
-    it('should remove correct client once it goes offline', async () => {
+    it('should remove correct client once it goes offline', async function() {
         const manager = new ClientManager();
         const clientFoo = await manager.newClient('foo');
         const clientBar = await manager.newClient('bar');
 
-        const socket = await new Promise((resolve) => {
+        const socket = await new Promise<net.Socket>((resolve) => {
             const netClient = net.createConnection({ port: clientFoo.port }, () => {
                 resolve(netClient);
             });
@@ -78,7 +78,7 @@ describe('ClientManager', () => {
         socket.end();
     }).timeout(5000);
 
-    it('should remove clients if they do not connect within 5 seconds', async () => {
+    it('should remove clients if they do not connect within 5 seconds', async function() {
         const manager = new ClientManager();
         const clientFoo = await manager.newClient('foo');
         assert(manager.hasClient('foo'));

@@ -1,16 +1,39 @@
-import { Agent } from 'http';
-import net from 'net';
-import assert from 'assert';
 import log from 'book';
-import Debug from 'debug';
+import { Agent } from 'http';
+import net, { Socket } from 'net';
+import { newLogger } from './logger.js';
 
 const DEFAULT_MAX_SOCKETS = 10;
+
+export type TunnelAgentOptions = {
+    clientId?: string
+    maxTcpSockets?: number
+    maxSockets?: number
+}
+
+type ServerError = Error & { code: string }
+
+type WaitingCreateConn = CallableFunction
 
 // Implements an http.Agent interface to a pool of tunnel sockets
 // A tunnel socket is a connection _from_ a client that will
 // service http requests. This agent is usable wherever one can use an http.Agent
 class TunnelAgent extends Agent {
-    constructor(options = {}) {
+
+    private readonly logger = newLogger(TunnelAgent.name)
+
+    private started: boolean
+    private closed: boolean
+    
+
+    private maxTcpSockets: number
+    private connectedSockets: number
+
+    private server: net.Server    
+    private availableSockets: Socket[]
+    private waitingCreateConn: WaitingCreateConn[]
+    
+    constructor(options: TunnelAgentOptions = {}) {
         super({
             keepAlive: true,
             // only allow keepalive to hold on to one socket
@@ -24,8 +47,6 @@ class TunnelAgent extends Agent {
         // when a createConnection cannot return a socket, it goes into a queue
         // once a socket is available it is handed out to the next callback
         this.waitingCreateConn = [];
-
-        this.debug = Debug(`lt:TunnelAgent[${options.clientId}]`);
 
         // track maximum allowed sockets
         this.connectedSockets = 0;
@@ -54,7 +75,7 @@ class TunnelAgent extends Agent {
 
         server.on('close', this._onClose.bind(this));
         server.on('connection', this._onConnection.bind(this));
-        server.on('error', (err) => {
+        server.on('error', (err: ServerError) => {
             // These errors happen from killed connections, we don't worry about them
             if (err.code == 'ECONNRESET' || err.code == 'ETIMEDOUT') {
                 return;
@@ -62,10 +83,11 @@ class TunnelAgent extends Agent {
             log.error(err);
         });
 
-        return new Promise((resolve) => {
+        return new Promise<{port:number}>((resolve) => {
             server.listen(() => {
-                const port = server.address().port;
-                this.debug('tcp server listening on port: %d', port);
+                const addr = server.address() as net.AddressInfo
+                const port = addr.port;
+                this.logger.debug('tcp server listening on port: %d', port);
 
                 resolve({
                     // port for lt client tcp connections
@@ -77,7 +99,7 @@ class TunnelAgent extends Agent {
 
     _onClose() {
         this.closed = true;
-        this.debug('closed tcp socket');
+        this.logger.debug('closed tcp socket');
         // flush any waiting connections
         for (const conn of this.waitingCreateConn) {
             conn(new Error('closed'), null);
@@ -87,16 +109,16 @@ class TunnelAgent extends Agent {
     }
 
     // new socket connection from client for tunneling requests to client
-    _onConnection(socket) {
+    _onConnection(socket: net.Socket) {
         // no more socket connections allowed
         if (this.connectedSockets >= this.maxTcpSockets) {
-            this.debug('no more sockets allowed');
+            this.logger.debug('no more sockets allowed');
             socket.destroy();
-            return false;
+            return
         }
 
         socket.once('close', (hadError) => {
-            this.debug('closed socket (error: %s)', hadError);
+            this.logger.debug('closed socket (error: %s)', hadError);
             this.connectedSockets -= 1;
             // remove the socket from available list
             const idx = this.availableSockets.indexOf(socket);
@@ -104,15 +126,15 @@ class TunnelAgent extends Agent {
                 this.availableSockets.splice(idx, 1);
             }
 
-            this.debug('connected sockets: %s', this.connectedSockets);
+            this.logger.debug('connected sockets: %s', this.connectedSockets);
             if (this.connectedSockets <= 0) {
-                this.debug('all sockets disconnected');
+                this.logger.debug('all sockets disconnected');
                 this.emit('offline');
             }
         });
 
         // close will be emitted after this
-        socket.once('error', (err) => {
+        socket.once('error', (err: Error) => {
             // we do not log these errors, sessions can drop from clients for many reasons
             // these are not actionable errors for our server
             socket.destroy();
@@ -123,16 +145,17 @@ class TunnelAgent extends Agent {
         }
 
         this.connectedSockets += 1;
-        this.debug('new connection from: %s:%s', socket.address().address, socket.address().port);
+        const addr = socket.address() as net.AddressInfo
+        this.logger.debug('new connection from: %s:%s', addr.address, addr.port);
 
         // if there are queued callbacks, give this socket now and don't queue into available
         const fn = this.waitingCreateConn.shift();
         if (fn) {
-            this.debug('giving socket to queued conn request');
+            this.logger.debug('giving socket to queued conn request');
             setTimeout(() => {
                 fn(null, socket);
             }, 0);
-            return;
+            return
         }
 
         // make socket available for those waiting on sockets
@@ -148,7 +171,7 @@ class TunnelAgent extends Agent {
             return;
         }
 
-        this.debug('create connection');
+        this.logger.debug('create connection');
 
         // socket is a tcp connection back to the user hosting the site
         const sock = this.availableSockets.shift();
@@ -157,12 +180,12 @@ class TunnelAgent extends Agent {
         // wait until we have one
         if (!sock) {
             this.waitingCreateConn.push(cb);
-            this.debug('waiting connected: %s', this.connectedSockets);
-            this.debug('waiting available: %s', this.availableSockets.length);
+            this.logger.debug('waiting connected: %s', this.connectedSockets);
+            this.logger.debug('waiting available: %s', this.availableSockets.length);
             return;
         }
 
-        this.debug('socket given');
+        this.logger.debug('socket given');
         cb(null, sock);
     }
 
