@@ -23,11 +23,8 @@ class DummySocket extends Duplex {
 
 class DummyWebsocket extends Duplex {
 
-  private sentHeader: boolean
-
   constructor(options = {}) {
     super(options);
-    this.sentHeader = false;
   }
 
   _write(chunk, encoding, callback) {

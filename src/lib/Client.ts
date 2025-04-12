@@ -61,6 +61,10 @@ class Client extends EventEmitter {
     });
   }
 
+  getId() {
+    return this.id
+  }
+
   stats() {
     return this.agent.stats();
   }
@@ -72,7 +76,7 @@ class Client extends EventEmitter {
   }
 
   handleRequest(req, res) {
-    this.logger.debug('> %s', req.url);
+    this.logger.debug(`> ${req.url}`);
     const opt = {
       path: req.url,
       agent: this.agent,
