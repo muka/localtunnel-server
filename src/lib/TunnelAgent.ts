@@ -94,7 +94,7 @@ class TunnelAgent extends Agent {
       server.listen(() => {
         const addr = server.address() as net.AddressInfo
         const port = addr.port;
-        this.logger.debug('tcp server listening on port: %d', port);
+        this.logger.debug(`tcp server listening on port: ${port}`);
 
         resolve({
           // port for lt client tcp connections
@@ -125,7 +125,7 @@ class TunnelAgent extends Agent {
     }
 
     socket.once('close', (hadError) => {
-      this.logger.debug('closed socket (error: %s)', hadError);
+      this.logger.debug(`closed socket (error: ${hadError})` );
       this.connectedSockets -= 1;
       // remove the socket from available list
       const idx = this.availableSockets.indexOf(socket);
@@ -133,7 +133,7 @@ class TunnelAgent extends Agent {
         this.availableSockets.splice(idx, 1);
       }
 
-      this.logger.debug('connected sockets: %s', this.connectedSockets);
+      this.logger.debug(`connected sockets: ${this.connectedSockets}`);
       if (this.connectedSockets <= 0) {
         this.logger.debug('all sockets disconnected');
         this.emit('offline');
@@ -153,7 +153,7 @@ class TunnelAgent extends Agent {
 
     this.connectedSockets += 1;
     const addr = socket.address() as net.AddressInfo
-    this.logger.debug('new connection from: %s:%s', addr.address, addr.port);
+    this.logger.debug(`new connection from: ${addr.address}:${addr.port}`);
 
     // if there are queued callbacks, give this socket now and don't queue into available
     const fn = this.waitingCreateConn.shift();

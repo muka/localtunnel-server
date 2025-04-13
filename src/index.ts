@@ -7,10 +7,18 @@ import tldjs from 'tldjs';
 
 import { Duplex } from 'stream';
 import ClientManager from './lib/ClientManager.js';
+import { newLogger } from './lib/logger.js';
 
-const debug = Debug('localtunnel:server');
+const logger = newLogger('localtunnel');
 
-export default function(opt?) {
+type LocalTunnelOpts = {
+  domain?: string
+  landing?: string
+  secure?: boolean
+  max_tcp_sockets?: number
+}
+
+export default function(opt?: LocalTunnelOpts) {
   opt = opt || {};
 
   const validHosts = (opt.domain) ? [opt.domain] : undefined;
@@ -66,7 +74,7 @@ export default function(opt?) {
     const isNewClientRequest = ctx.query['new'] !== undefined;
     if (isNewClientRequest) {
       const reqId = hri.random();
-      debug('making new client with id %s', reqId);
+      logger.debug(`making new client with id ${reqId}`);
       const info = await manager.newClient(reqId);
 
       const url = schema + '://' + info.id + '.' + ctx.request.host;
@@ -104,7 +112,7 @@ export default function(opt?) {
       return;
     }
 
-    debug('making new client with id %s', reqId);
+    logger.debug(`making new client with id ${reqId}`);
     const info = await manager.newClient(reqId);
 
     const url = schema + '://' + info.id + '.' + ctx.request.host;
