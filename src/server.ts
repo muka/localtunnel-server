@@ -37,7 +37,7 @@ export default function(opt?: LocalTunnelOpts) {
   const app = new Koa();
   const router = new Router();
 
-  if (opt.secret){
+  if (opt.secret) {
     app.use(jwt({
       secret: opt.secret
     }));

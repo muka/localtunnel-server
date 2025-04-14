@@ -28,6 +28,7 @@ const runServer = (opts: CliOpts) => {
     secure: opts.secure,
     domain: opts.domain,
     landing: opts.landing,
+    secret: opts.secret,
   });
 
   server.listen(opts.port, opts.address, () => {

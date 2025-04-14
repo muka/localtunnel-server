@@ -196,8 +196,8 @@ class TunnelAgent extends Agent {
     // wait until we have one
     if (!sock) {
       this.waitingCreateConn.push(cb);
-      this.logger.debug('waiting connected: %s', this.connectedSockets);
-      this.logger.debug('waiting available: %s', this.availableSockets.length);
+      this.logger.debug(`waiting connected: ${this.connectedSockets}`);
+      this.logger.debug(`waiting available: ${this.availableSockets.length}`);
       return;
     }
 
