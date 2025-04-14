@@ -12,6 +12,10 @@
     "type": "git",
     "url": "git://github.com/localtunnel/server.git"
   },
+  "bin": {
+    "lt-server": "bin/server.ts",
+    "localtunnel-server": "bin/server.ts"
+  },
   "scripts": {
     "test": "ts-mocha -n loader=ts-node/esm -p tsconfig.json --check-leaks src/**/*.test.ts",
     "start": "./bin/server",
