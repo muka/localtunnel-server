@@ -14,7 +14,7 @@ type ClientManagerStats = {
 // Manage sets of clients
 //
 // A client is a "user session" established to service a remote localtunnel client
-class ClientManager {
+export default class ClientManager {
 
   private readonly logger = newLogger(ClientManager.name)
 
@@ -86,8 +86,8 @@ class ClientManager {
     }
   }
 
-  removeClient(id) {
-    this.logger.debug('removing client: %s', id);
+  removeClient(id: string) {
+    this.logger.debug(`removing client: ${id}`);
     const client = this.clients[id];
     if (!client) {
       return;
@@ -97,13 +97,11 @@ class ClientManager {
     client.close();
   }
 
-  hasClient(id) {
+  hasClient(id: string) {
     return !!this.clients[id];
   }
 
-  getClient(id) {
+  getClient(id: string) {
     return this.clients[id];
   }
 }
-
-export default ClientManager;

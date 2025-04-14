@@ -1,4 +1,3 @@
-import Debug from 'debug';
 import http from 'http';
 import { hri } from 'human-readable-ids';
 import Koa, { Request } from 'koa';
@@ -26,7 +25,8 @@ export default function(opt?: LocalTunnelOpts) {
   const landingPage = opt.landing || 'https://localtunnel.github.io/www/';
 
   function GetClientIdFromHostname(hostname) {
-    return myTldjs.getSubdomain(hostname);
+    const pieces = hostname.split(':');
+    return myTldjs.getSubdomain(pieces[0]);
   }
 
   const manager = new ClientManager(opt);
