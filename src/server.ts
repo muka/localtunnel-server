@@ -51,10 +51,10 @@ export default function(opt?: LocalTunnelOpts) {
     };
   });
 
-  router.get('/api/tunnels/:id/kill', async (ctx, next) => {
+  router.post('/api/tunnels/:id/kill', async (ctx, next) => {
     const clientId = ctx.params.id;
     if (!opt.secret){
-      logger.debug(`disconnecting client with id ${clientId}, error: secret is missing`);
+      logger.debug(`secret is missing`);
       ctx.throw(403, {
         success: false,
         message: 'secret is missing'
@@ -63,19 +63,19 @@ export default function(opt?: LocalTunnelOpts) {
     }
 
     if (!manager.hasClient(clientId)) {
-      logger.debug(`disconnecting client with id ${clientId}, error: client is not connected`);
+      logger.debug(`client is not connected`);
       ctx.throw(404, {
         success: false,
         message: `client with id ${clientId} is not connected`
       });
     }
 
-    const securityToken = ctx.request.headers.authorization;
-    if (!manager.getClient(clientId).isSecurityTokenEqual(securityToken)) {
-      logger.debug(`disconnecting client with id ${clientId}, error: securityToken is not equal`);
+    const token = ctx.request.headers.authorization;
+    if (!manager.getClient(clientId).isSecurityTokenEqual(token)) {
+      logger.debug(`token is not equal`);
       ctx.throw(403, {
         success: false,
-        message: `client with id ${clientId} has not the same securityToken than ${securityToken}`
+        message: `client with id ${clientId} has not the same securityToken than ${token}`
       });
     }
 
