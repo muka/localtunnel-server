@@ -1,10 +1,10 @@
 import http from 'http';
 import { hri } from 'human-readable-ids';
 import Koa, { Request } from 'koa';
+import jwt from 'koa-jwt';
 import Router from 'koa-router';
-import tldjs from 'tldjs';
-
 import { Duplex } from 'stream';
+import tldjs from 'tldjs';
 import ClientManager from './lib/ClientManager.js';
 import { newLogger } from './lib/logger.js';
 
@@ -15,6 +15,7 @@ type LocalTunnelOpts = {
   landing?: string
   secure?: boolean
   max_tcp_sockets?: number
+  secret?: string
 }
 
 export default function(opt?: LocalTunnelOpts) {
@@ -36,11 +37,55 @@ export default function(opt?: LocalTunnelOpts) {
   const app = new Koa();
   const router = new Router();
 
+  if (opt.secret){
+    app.use(jwt({
+      secret: opt.secret
+    }));
+  }
+
   router.get('/api/status', async (ctx, next) => {
-    const stats = manager.stats;
+    const stats = manager.getStats();
     ctx.body = {
       tunnels: stats.tunnels,
       mem: process.memoryUsage(),
+    };
+  });
+
+  router.get('/api/tunnels/:id/kill', async (ctx, next) => {
+    const clientId = ctx.params.id;
+    if (!opt.secret){
+      logger.debug(`disconnecting client with id ${clientId}, error: secret is missing`);
+      ctx.throw(403, {
+        success: false,
+        message: 'secret is missing'
+      });
+      return;
+    }
+
+    if (!manager.hasClient(clientId)) {
+      logger.debug(`disconnecting client with id ${clientId}, error: client is not connected`);
+      ctx.throw(404, {
+        success: false,
+        message: `client with id ${clientId} is not connected`
+      });
+    }
+
+    const securityToken = ctx.request.headers.authorization;
+    if (!manager.getClient(clientId).isSecurityTokenEqual(securityToken)) {
+      logger.debug(`disconnecting client with id ${clientId}, error: securityToken is not equal`);
+      ctx.throw(403, {
+        success: false,
+        message: `client with id ${clientId} has not the same securityToken than ${securityToken}`
+      });
+    }
+
+    logger.debug(`disconnecting client with id ${clientId}`);
+    manager.removeClient(clientId);
+
+    ctx.status = 200;
+    ctx.body = {
+      success: true,
+      message: `client with id ${clientId} is disconected`
     };
   });
 
@@ -75,7 +120,7 @@ export default function(opt?: LocalTunnelOpts) {
     if (isNewClientRequest) {
       const reqId = hri.random();
       logger.debug(`making new client with id ${reqId}`);
-      const info = await manager.newClient(reqId);
+      const info = await manager.newClient(reqId, opt.secret ? ctx.request.headers.authorization : undefined);
 
       const url = schema + '://' + info.id + '.' + ctx.request.host;
       info.url = url;
@@ -113,7 +158,7 @@ export default function(opt?: LocalTunnelOpts) {
     }
 
     logger.debug(`making new client with id ${reqId}`);
-    const info = await manager.newClient(reqId);
+    const info = await manager.newClient(reqId, opt.secret ? ctx.request.headers.authorization : undefined);
 
     const url = schema + '://' + info.id + '.' + ctx.request.host;
     info.url = url;

@@ -1,11 +1,14 @@
 import { hri } from 'human-readable-ids';
 
 import Client from './Client.js';
+import PortManager from "./PortManager.js";
 import TunnelAgent from './TunnelAgent.js';
 import { newLogger } from './logger.js';
 
 type ClientManagerOptions = {
   max_tcp_sockets?: number
+  range?: string
+  secret?: string
 }
 type ClientManagerStats = {
   tunnels: number
@@ -19,10 +22,14 @@ export default class ClientManager {
   private readonly logger = newLogger(ClientManager.name)
 
   // id -> client instance
-  private clients = new Map()
-  public readonly stats: ClientManagerStats
+  private readonly clients = new Map()
+  private readonly portManager: PortManager
+  
+  private readonly stats: ClientManagerStats
 
   constructor(private readonly opt: ClientManagerOptions = {}) {
+
+    this.portManager = new PortManager({range: this.opt.range })
 
     // statistics
     this.stats = {
@@ -31,10 +38,14 @@ export default class ClientManager {
 
   }
 
+  getStats() {
+    return this.stats
+  }
+
   // create a new tunnel with `id`
   // if the id is already used, a random id is assigned
   // if the tunnel could not be created, throws an error
-  async newClient(id?: string) : Promise<{
+  async newClient(id?: string, secret?: string) : Promise<{
     id: string,
     port: number,
     max_conn_count: number,
@@ -52,6 +63,7 @@ export default class ClientManager {
 
     const maxSockets = this.opt.max_tcp_sockets || 10;
     const agent = new TunnelAgent({
+      portManager: this.portManager,
       clientId: id,
       maxSockets,
     });
@@ -59,6 +71,7 @@ export default class ClientManager {
     const client = new Client({
       id,
       agent,
+      secret,
     });
 
     // add to clients map immediately
@@ -92,6 +105,7 @@ export default class ClientManager {
     if (!client) {
       return;
     }
+    this.portManager.release(client.agent.port);
     --this.stats.tunnels;
     delete this.clients[id];
     client.close();

@@ -6,7 +6,7 @@ import ClientManager from './ClientManager.js';
 describe('ClientManager', function() {
   it('should construct with no tunnels', function() {
     const manager = new ClientManager();
-    assert.equal(manager.stats.tunnels, 0);
+    assert.equal(manager.getStats().tunnels, 0);
   });
 
   it('should create a new client with random id', async function() {

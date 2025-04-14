@@ -1,16 +1,17 @@
 import EventEmitter from 'events';
 import http from 'http';
+import jwt from 'jsonwebtoken';
 import pump from 'pump';
 import { Duplex } from 'stream';
 import { newLogger } from './logger.js';
 import TunnelAgent from './TunnelAgent.js';
-
 
 type SocketError = Error & { code: string }
 
 type ClientOptions = {
   id?: string
   agent: TunnelAgent
+  secret?: string
 }
 
 // A client encapsulates req/res handling using an agent
@@ -25,12 +26,14 @@ class Client extends EventEmitter {
   private agent: TunnelAgent
 
   private graceTimeout: NodeJS.Timeout
+  private secret: string
 
   constructor(options: ClientOptions) {
     super();
 
     const agent = this.agent = options.agent;
     const id = this.id = options.id;
+    this.secret = options.secret;
 
     // client is given a grace period in which they can connect before they are _removed_
     this.graceTimeout = setTimeout(() => {
@@ -59,6 +62,27 @@ class Client extends EventEmitter {
     agent.once('error', (err: Error) => {
       this.close();
     });
+  }
+
+  isSecurityTokenEqual(clientSecret: string) {
+
+    const decodeJWT = (token: string) => {
+      return jwt.decode(token.replace(/Bearer /, ''), {complete: false});
+    }
+
+    if (this.secret === null) {
+      return false;
+    }
+
+    try{
+      const serverToken = decodeJWT(this.secret) as jwt.JwtPayload
+      const clientToken = decodeJWT(clientSecret) as jwt.JwtPayload
+
+      return serverToken?.name === clientToken?.name;
+    }catch(error){
+      this.logger.debug(`error with jwt ${clientSecret}: ${error.stack}`);
+      return false;
+    }
   }
 
   getId() {

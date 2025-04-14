@@ -2,6 +2,7 @@ import log from 'book';
 import { Agent } from 'http';
 import net, { Socket } from 'net';
 import { newLogger } from './logger.js';
+import PortManager from './PortManager.js';
 
 const DEFAULT_MAX_SOCKETS = 10;
 
@@ -9,6 +10,7 @@ export type TunnelAgentOptions = {
   clientId?: string
   maxTcpSockets?: number
   maxSockets?: number
+  portManager?: PortManager
 }
 
 type ServerError = Error & { code: string }
@@ -25,14 +27,16 @@ class TunnelAgent extends Agent {
   private started: boolean
   private closed: boolean
 
+  private port?: number
+
   private maxTcpSockets: number
   private connectedSockets: number
 
   private server: net.Server    
-  private availableSockets: Socket[]
-  private waitingCreateConn: TunnelConnectionCallback[]
+  private readonly availableSockets: Socket[]
+  private readonly waitingCreateConn: TunnelConnectionCallback[]
     
-  constructor(options: TunnelAgentOptions = {}) {
+  constructor(private readonly options: TunnelAgentOptions = {}) {
     super({
       keepAlive: true,
       // only allow keepalive to hold on to one socket
@@ -91,14 +95,15 @@ class TunnelAgent extends Agent {
     });
 
     return new Promise<{port:number}>((resolve) => {
-      server.listen(() => {
+      const serverPort = this.options.portManager?.getNextAvailable(this.options.clientId)
+      server.listen(serverPort, () => {
         const addr = server.address() as net.AddressInfo
-        const port = addr.port;
-        this.logger.debug(`tcp server listening on port: ${port}`);
+        this.port = addr.port
+        this.logger.debug(`tcp server listening on port: ${this.port}`);
 
         resolve({
           // port for lt client tcp connections
-          port: port,
+          port: this.port,
         });
       });
     });
@@ -111,7 +116,7 @@ class TunnelAgent extends Agent {
     for (const conn of this.waitingCreateConn) {
       conn(new Error('closed'), null);
     }
-    this.waitingCreateConn = [];
+    this.waitingCreateConn.splice(0)
     this.emit('end');
   }
 
@@ -144,6 +149,9 @@ class TunnelAgent extends Agent {
     socket.once('error', (err: Error) => {
       // we do not log these errors, sessions can drop from clients for many reasons
       // these are not actionable errors for our server
+      if(this.options.portManager && this.port) {
+        this.options.portManager?.release(this.port);
+      }
       socket.destroy();
     });
 

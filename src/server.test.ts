@@ -1,9 +1,10 @@
 import assert from 'assert';
+import jwt from 'jsonwebtoken';
 import net, { AddressInfo } from 'net';
 import request from 'supertest';
 import WebSocket, { Server as WebSocketServer } from 'ws';
 
-import createServer from './index.js';
+import createServer from './server.js';
 
 describe('Server', function() {
   it('server starts and stops', async function() {
@@ -32,6 +33,31 @@ describe('Server', function() {
     const res = await request(server).get('/thisdomainisoutsidethesizeofwhatweallowwhichissixtythreecharacters');
     assert.equal(res.body.message, 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.');
   });
+
+  it('reject request without jwt if required', async function() {
+    const server = createServer({secret: 'thekey'});
+    const res = await request(server).get('/subdomain');
+    assert.equal(res.status, 401);
+  });
+
+  it('reject request with invalid jwt if required', async function() {
+    const server = createServer({secret: 'thekey'});
+    const jwtoken = jwt.sign({
+      foo: 'bar'
+    }, 'thebadkey');
+    const res = await request(server).get('/subdomain').set('Authorization', `Bearer ${jwtoken}`);
+    assert.equal(res.status, 401);
+  });
+
+  it('accept request with valid jwt if required', async function() {
+    const server = createServer({secret: 'thekey'});
+    const jwtoken = jwt.sign({
+      foo: 'bar'
+    }, 'thekey');
+    const res = await request(server).get('/subdomain').set('Authorization', `Bearer ${jwtoken}`);
+    assert.equal(res.status, 200);
+  });
+
 
   it('should upgrade websocket requests', async function() {
     const hostname = 'websocket-test';
@@ -106,4 +132,55 @@ describe('Server', function() {
 
     await new Promise(resolve => server.close(resolve));
   });
+
+
+  it('should not support the /api/tunnels/:id/kill endpoint if jwt authorization is not enable on server', async function() {
+    const server = createServer();
+    await new Promise(resolve => server.listen(resolve));
+
+    const res = await request(server).get('/api/tunnels/foobar-test/kill');
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.text, 'secret is not used');
+
+    await new Promise(resolve => server.close(resolve));
+  });
+
+  it('should throw error when calling /api/tunnels/:id/kill endpoint if id does not exists', async function() {
+    const server = createServer({secret: 'thekey'});
+    await new Promise(resolve => server.listen(resolve));
+
+    {
+      const jwtoken = jwt.sign({
+        name: 'bar'
+      }, 'thekey');
+      await request(server).get('/foobar-test').set('Authorization', `Bearer ${jwtoken}`);
+      // no such tunnel yet
+      const res = await request(server).get('/api/tunnels/foobar-test2/kill').set('Authorization', `Bearer ${jwtoken}`);
+      assert.equal(res.statusCode, 404);
+      assert.equal(res.text, 'client with id foobar-test2 is not connected');
+    }
+
+    await new Promise(resolve => server.close(resolve));
+  });
+
+  it('should disconnect client when calling /api/tunnels/:id/kill endpoint', async function() {
+    const server = createServer({secret: 'thekey'});
+    await new Promise(resolve => server.listen(resolve));
+
+    {
+      const jwtoken = jwt.sign({
+        name: 'bar'
+      }, 'thekey');
+      await request(server).get('/foobar-test').set('Authorization', `Bearer ${jwtoken}`);
+
+      const res = await request(server).get('/api/tunnels/foobar-test/kill').set('Authorization', `Bearer ${jwtoken}`);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.text, '{"success":true,"message":"client with id foobar-test is disconected"}');
+      const statusResult = await request(server).get('/api/tunnels/foobar-test/status').set('Authorization', `Bearer ${jwtoken}`);
+      assert.equal(statusResult.text, 'Not Found');
+    }
+
+    await new Promise(resolve => server.close(resolve));
+  });
+
 });
