@@ -21,7 +21,7 @@ type LocalTunnelOpts = {
 export default function(opt?: LocalTunnelOpts) {
   opt = opt || {};
 
-  const validHosts = (opt.domain) ? [opt.domain] : undefined;
+  const validHosts = (opt.domain) ? [opt.domain] : ['localhost'];
   const myTldjs = tldjs.fromUserSettings({ validHosts });
   const landingPage = opt.landing || 'https://localtunnel.github.io/www/';
 
