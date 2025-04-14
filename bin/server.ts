@@ -15,6 +15,7 @@ type CliOpts = {
   port: number
   address: string,
   domain: string,
+  landing: string,
   maxSockets: number,
 }
 
@@ -24,6 +25,7 @@ const runServer = (opts: CliOpts) => {
     max_tcp_sockets: opts.maxSockets,
     secure: opts.secure,
     domain: opts.domain,
+    landing: opts.landing,
   });
 
   server.listen(opts.port, opts.address, () => {
@@ -63,7 +65,8 @@ const main = async () => {
     .option('--secure', 'use this flag to indicate proxy over https', false)
     .option('--port, -p <number>', 'listen on this port for outside requests', intParser, 80)
     .option('--address, -a <string>', 'IP address to bind to', '0.0.0.0')
-    .option('--domain, -d <string>', 'Specify the base domain name. This is optional if hosting localtunnel from a regular example.com domain. This is required if hosting a localtunnel server from a subdomain (i.e. lt.example.dom where clients will be client-app.lt.example.come)')
+    .option('--domain, -d <string>', 'Specify the base domain name. This is optional if hosting localtunnel from a regular example.com domain. This is required if hosting a localtunnel server from a subdomain (i.e. lt.example.dom where clients will be client-app.lt.example.com)')
+    .option('--landing, -l <string>', 'The landing page for redirect from root domain', 'https://localtunnel.github.io/www/')
     .option('--max-sockets', 'maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)', intParser, 10)
     .action(runServer)
 
