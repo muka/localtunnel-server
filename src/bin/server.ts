@@ -4,9 +4,9 @@ import 'dotenv/config';
 
 import { InvalidArgumentError, program } from 'commander';
 import { AddressInfo } from 'net';
-import pkg from '../package.json' with { type: "json" };
-import createServer from '../src/server.js';
-import { newLogger } from '../src/lib/logger.js';
+import pkg from '../../package.json' with { type: "json" };
+import createServer from '../server.js';
+import { newLogger } from '../lib/logger.js';
 
 const logger = newLogger('server')
 
