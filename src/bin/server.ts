@@ -5,10 +5,8 @@ import 'dotenv/config';
 import { InvalidArgumentError, Option, program } from 'commander';
 import { AddressInfo } from 'net';
 import pkg from '../../package.json' with { type: "json" };
-import { newLogger } from '../lib/logger.js';
+import { newLogger, setLogLevel } from '../lib/logger.js';
 import createServer from '../server.js';
-
-const logger = newLogger('server')
 
 type CliOpts = {
   secure: boolean
@@ -19,9 +17,14 @@ type CliOpts = {
   maxSockets: number,
   range: string,
   secret: string,
+  logLevel: string,
 }
 
 const runServer = (opts: CliOpts) => {
+  
+  const logger = newLogger('server:lt')
+
+  setLogLevel(opts.logLevel);
 
   const server = createServer({
     max_tcp_sockets: opts.maxSockets,
@@ -55,7 +58,7 @@ const runServer = (opts: CliOpts) => {
 }
 
 const main = async () => {
-
+  
   const intParser = (value: string) => {
     const parsedValue = parseInt(value, 10);
     if (isNaN(parsedValue)) {
@@ -83,6 +86,7 @@ const main = async () => {
     .description('localtunnel server')
     .version(pkg.version)
     
+    .addOption(new Option('--log-level', 'set log level').default('info').env('LOG_LEVEL'))
     .addOption(new Option('--secure', 'use this flag to indicate proxy over https').default(false).env('SECURE'))
     
     .addOption(new Option('--port, -p <number>', 'listen on this port for outside requests').argParser(intParser).default(80).env('PORT'))
@@ -110,4 +114,4 @@ const main = async () => {
   program.parse();
 }
 
-main().catch(e => logger.error(e))
+main().catch(e => console.error(e))
