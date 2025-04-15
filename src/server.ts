@@ -44,6 +44,7 @@ export default function(opt?: LocalTunnelOpts) {
   }
 
   router.get('/api/status', async (ctx, next) => {
+    logger.debug(`getting status`);
     const stats = manager.getStats();
     ctx.body = {
       tunnels: stats.tunnels,
@@ -53,6 +54,7 @@ export default function(opt?: LocalTunnelOpts) {
 
   router.post('/api/tunnels/:id/kill', async (ctx, next) => {
     const clientId = ctx.params.id;
+    logger.debug(`killing tunnel ${clientId}`);
     if (!opt.secret){
       logger.debug(`secret is missing`);
       ctx.throw(403, {
@@ -91,6 +93,7 @@ export default function(opt?: LocalTunnelOpts) {
 
   router.get('/api/tunnels/:id/status', async (ctx, next) => {
     const clientId = ctx.params.id;
+    logger.debug(`getting status for client ${clientId}`);
     const client = manager.getClient(clientId);
     if (!client) {
       ctx.throw(404);
@@ -187,6 +190,7 @@ export default function(opt?: LocalTunnelOpts) {
 
     const client = manager.getClient(clientId);
     if (!client) {
+      logger.debug(`client not found for id ${clientId}`);
       res.statusCode = 404;
       res.end('404');
       return;
