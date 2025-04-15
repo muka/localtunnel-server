@@ -178,7 +178,7 @@ export default function(opt?: LocalTunnelOpts) {
     const hostname = req.headers.host;
     if (!hostname) {
       res.statusCode = 400;
-      res.end('Host header is required');
+      res.end(JSON.stringify({ message: 'Host header is required' }));
       return;
     }
 
@@ -192,7 +192,7 @@ export default function(opt?: LocalTunnelOpts) {
     if (!client) {
       logger.debug(`client not found for id ${clientId}`);
       res.statusCode = 404;
-      res.end('404');
+      res.end(JSON.stringify({ message: 'Client not found' }));
       return;
     }
 
