@@ -22,7 +22,7 @@ export default class ClientManager {
   private readonly logger = newLogger(ClientManager.name)
 
   // id -> client instance
-  private readonly clients = new Map()
+  private readonly clients: Record<string, Client> = {}
   private readonly portManager: PortManager
   
   private readonly stats: ClientManagerStats

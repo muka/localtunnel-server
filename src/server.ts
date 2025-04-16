@@ -1,4 +1,4 @@
-import http from 'http';
+import http, { IncomingMessage } from 'http';
 import { hri } from 'human-readable-ids';
 import Koa, { Request } from 'koa';
 import jwt from 'koa-jwt';
@@ -200,7 +200,7 @@ export default function(opt?: LocalTunnelOpts) {
   });
 
     
-  server.on('upgrade', (req: Request, socket: Duplex, head: Buffer) => {
+  server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     const hostname = req.headers.host;
     if (!hostname) {
       socket.destroy();

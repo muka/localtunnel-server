@@ -93,6 +93,10 @@ class Client extends EventEmitter {
     return this.agent.stats();
   }
 
+  getAgent() {
+    return this.agent;
+  }
+
   close() {
     clearTimeout(this.graceTimeout);
     this.agent.destroy();

@@ -63,6 +63,10 @@ class TunnelAgent extends Agent {
     this.closed = false;
   }
 
+  getPort() {
+    return this.port;
+  }
+
   isStarted() {
     return this.started
   }
