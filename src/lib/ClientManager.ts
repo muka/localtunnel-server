@@ -105,7 +105,7 @@ export default class ClientManager {
     if (!client) {
       return;
     }
-    this.portManager.release(client.agent.port);
+    this.portManager.release(client.getAgent().getPort());
     --this.stats.tunnels;
     delete this.clients[id];
     client.close();
