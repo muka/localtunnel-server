@@ -5,6 +5,7 @@ import pump from 'pump';
 import { Duplex } from 'stream';
 import { newLogger } from './logger.js';
 import TunnelAgent from './TunnelAgent.js';
+import { Socket } from 'net';
 
 type SocketError = Error & { code: string }
 
@@ -12,6 +13,12 @@ type ClientOptions = {
   id?: string
   agent: TunnelAgent
   secret?: string
+}
+
+export type HttpServerRequest = http.IncomingMessage
+
+export type HttpServerResponse = http.ServerResponse<http.IncomingMessage> & {
+  req: http.IncomingMessage;
 }
 
 // A client encapsulates req/res handling using an agent
@@ -35,10 +42,14 @@ class Client extends EventEmitter {
     const id = this.id = options.id;
     this.secret = options.secret;
 
+    const setGraceTimeout = () => {
     // client is given a grace period in which they can connect before they are _removed_
-    this.graceTimeout = setTimeout(() => {
-      this.close();
-    }, 1000).unref();
+      this.graceTimeout = setTimeout(() => {
+        this.close();
+      }, 1000).unref();
+    }
+
+    setGraceTimeout()
 
     agent.on('online', () => {
       this.logger.debug(`client online ${id}`);
@@ -52,9 +63,7 @@ class Client extends EventEmitter {
       clearTimeout(this.graceTimeout);
 
       // client is given a grace period in which they can re-connect before they are _removed_
-      this.graceTimeout = setTimeout(() => {
-        this.close();
-      }, 1000).unref();
+      setGraceTimeout()
     });
 
     // TODO(roman): an agent error removes the client, the user needs to re-connect?
@@ -103,7 +112,7 @@ class Client extends EventEmitter {
     this.emit('close');
   }
 
-  handleRequest(req, res) {
+  handleRequest(req: HttpServerRequest, res: HttpServerResponse) {
     this.logger.debug(`> ${req.url}`);
     const opt = {
       path: req.url,
@@ -132,7 +141,7 @@ class Client extends EventEmitter {
     pump(req, clientReq);
   }
 
-  handleUpgrade(req: http.IncomingMessage, socket: Duplex) {
+  handleUpgrade(req: HttpServerRequest, socket: Duplex) {
     this.logger.debug(`> [up] ${req.url}`);
     socket.once('error', (err: SocketError) => {
       // These client side errors can happen if the client dies while we are reading
@@ -143,7 +152,7 @@ class Client extends EventEmitter {
       console.error(err);
     });
 
-    this.agent.createConnection({}, (err, conn) => {
+    this.agent.createConnection({}, (err: Error, conn: Socket) => {
       this.logger.debug(`< [up] ${req.url}`);
       // any errors getting a connection mean we cannot service this request
       if (err) {

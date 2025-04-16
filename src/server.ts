@@ -1,10 +1,11 @@
 import http, { IncomingMessage } from 'http';
 import { hri } from 'human-readable-ids';
-import Koa, { Request } from 'koa';
+import Koa from 'koa';
 import jwt from 'koa-jwt';
 import Router from 'koa-router';
 import { Duplex } from 'stream';
 import tldjs from 'tldjs';
+import { HttpServerRequest, HttpServerResponse } from './lib/Client.js';
 import ClientManager from './lib/ClientManager.js';
 import { newLogger } from './lib/logger.js';
 
@@ -173,7 +174,7 @@ export default function(opt?: LocalTunnelOpts) {
 
   const appCallback = app.callback();
 
-  server.on('request', (req, res) => {
+  server.on('request', (req: HttpServerRequest, res: HttpServerResponse) => {
     // without a hostname, we won't know who the request is for
     const hostname = req.headers.host;
     if (!hostname) {

@@ -71,7 +71,7 @@ class TunnelAgent extends Agent {
   }
 
   isClosed() {
-    return this.isClosed
+    return this.closed
   }
 
   stats() {
