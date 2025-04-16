@@ -1,4 +1,3 @@
-import log from 'book';
 import { Agent } from 'http';
 import net, { Socket } from 'net';
 import { newLogger } from './logger.js';
@@ -95,7 +94,8 @@ class TunnelAgent extends Agent {
       if (err.code == 'ECONNRESET' || err.code == 'ETIMEDOUT') {
         return;
       }
-      log.error(err);
+      this.logger.error(`Tunnel error ${err.message}`);
+      this.logger.debug(err.stack);
     });
 
     return new Promise<{port:number}>((resolve) => {
